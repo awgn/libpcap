@@ -629,6 +629,10 @@ PCAP_SUPPORT_PACKET_RING
 DBUS_SRC
 PCAP_SUPPORT_DBUS
 PKGCONFIG
+PFRING_SRC
+PCAP_SUPPORT_PFRING
+PFQ_SRC
+PCAP_SUPPORT_PFQ
 BT_MONITOR_SRC
 BT_SRC
 PCAP_SUPPORT_BT
@@ -713,6 +717,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -758,6 +763,8 @@ enable_shared
 enable_usb
 enable_netmap
 enable_bluetooth
+enable_pfq
+enable_pfring
 enable_dbus
 enable_packet_ring
 enable_rdma
@@ -811,6 +818,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE}'
@@ -1063,6 +1071,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1200,7 +1217,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1353,6 +1370,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1402,6 +1420,8 @@ Optional Features:
                           available]
   --enable-bluetooth      enable Bluetooth support [default=yes, if support
                           available]
+  --enable-pfq            enable PFQ support
+  --enable-pfring         enable PF_RING support
   --enable-dbus           enable D-Bus capture support [default=yes, if
                           support available]
   --enable-packet-ring    enable Linux packet ring support [default=yes]
@@ -4461,7 +4481,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -4507,7 +4527,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -4531,7 +4551,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -4576,7 +4596,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -4600,7 +4620,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -8799,6 +8819,82 @@ $as_echo "$as_me: no Bluetooth sniffing support implemented for $host_os" >&6;}
 		;;
 	esac
 
+
+
+fi
+
+# Check whether --enable-pfq was given.
+if test "${enable_pfq+set}" = set; then :
+  enableval=$enable_pfq;
+else
+  enable_pfq=yes
+fi
+
+
+if test "x$enable_pfq" != "xno" ; then
+		case "$host_os" in
+	linux*)
+		ac_fn_c_check_header_compile "$LINENO" "linux/pf_q.h" "ac_cv_header_linux_pf_q_h" "#include <linux/if_ether.h>
+
+"
+if test "x$ac_cv_header_linux_pf_q_h" = xyes; then :
+
+$as_echo "#define PCAP_SUPPORT_PFQ 1" >>confdefs.h
+
+			PFQ_SRC=pcap-pfq-linux.c
+			LIBS="-lpfq $LIBS"
+			{ $as_echo "$as_me:${as_lineno-$LINENO}: PFQ socket is supported" >&5
+$as_echo "$as_me: PFQ socket is supported" >&6;}
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: PFQ socket is not supported" >&5
+$as_echo "$as_me: PFQ socket is not supported" >&6;}
+fi
+
+
+		;;
+	*)
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: no PFQ support implemented for $host_os" >&5
+$as_echo "$as_me: no PFQ support implemented for $host_os" >&6;}
+		;;
+	esac
+
+
+fi
+
+# Check whether --enable-pfring was given.
+if test "${enable_pfring+set}" = set; then :
+  enableval=$enable_pfring;
+else
+  enable_pfring=yes
+fi
+
+
+if test "x$enable_pfring" != "xno" ; then
+		case "$host_os" in
+	linux*)
+		ac_fn_c_check_header_compile "$LINENO" "linux/pf_ring.h" "ac_cv_header_linux_pf_ring_h" "#include <linux/if_ether.h>
+
+"
+if test "x$ac_cv_header_linux_pf_ring_h" = xyes; then :
+
+$as_echo "#define PCAP_SUPPORT_PFRING 1" >>confdefs.h
+
+			PFRING_SRC=pcap-pfring-linux.c
+			LIBS="-lpfring $LIBS"
+			{ $as_echo "$as_me:${as_lineno-$LINENO}: PF_RING socket is supported" >&5
+$as_echo "$as_me: PF_RING socket is supported" >&6;}
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: PF_RING socket is not supported" >&5
+$as_echo "$as_me: PF_RING socket is not supported" >&6;}
+fi
+
+
+		;;
+	*)
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: no PF_RING support implemented for $host_os" >&5
+$as_echo "$as_me: no PF_RING support implemented for $host_os" >&6;}
+		;;
+	esac
 
 
 fi

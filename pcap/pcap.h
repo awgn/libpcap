@@ -101,6 +101,7 @@ extern "C" {
  */
 #define PCAP_VERSION_MAJOR 2
 #define PCAP_VERSION_MINOR 4
+#define PCAP_VERSION_FANOUT 1
 
 #define PCAP_ERRBUF_SIZE 256
 
@@ -421,6 +422,7 @@ PCAP_API pcap_t	*pcap_open_offline(const char *, char *);
   PCAP_API pcap_t	*pcap_fopen_offline(FILE *, char *);
 #endif /*_WIN32*/
 
+PCAP_API int	pcap_fanout(pcap_t *, int group, const char *fanout);
 PCAP_API void	pcap_close(pcap_t *);
 PCAP_API int	pcap_loop(pcap_t *, int, pcap_handler, u_char *);
 PCAP_API int	pcap_dispatch(pcap_t *, int, pcap_handler, u_char *);

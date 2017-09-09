@@ -47,6 +47,7 @@
 #include <sys/sockio.h>
 #endif
 
+
 struct mbuf;		/* Squelch compiler warnings on some platforms for */
 struct rtentry;		/* declarations in <net/if.h> */
 #include <net/if.h>
@@ -58,6 +59,8 @@ struct rtentry;		/* declarations in <net/if.h> */
 #include <stdlib.h>
 #include <string.h>
 #if !defined(_MSC_VER) && !defined(__BORLANDC__) && !defined(__MINGW32__)
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #endif
 #include <fcntl.h>
@@ -171,12 +174,32 @@ pcap_wsockinit(void)
 }
 #endif /* _WIN32 */
 
+#ifdef PCAP_SUPPORT_PFQ
+#include "pcap-pfq-linux.h"
+#endif
+
+#ifdef PCAP_SUPPORT_PFRING
+#include "pcap-pfring-linux.h"
+#endif
+
 static int
 pcap_not_initialized(pcap_t *pcap)
 {
 	/* in case the caller doesn't check for PCAP_ERROR_NOT_ACTIVATED */
 	(void)pcap_snprintf(pcap->errbuf, sizeof(pcap->errbuf),
 	    "This handle hasn't been activated yet");
+	/* this means 'not initialized' */
+	return (PCAP_ERROR_NOT_ACTIVATED);
+}
+
+static int
+pcap_fanout_not_initialized(pcap_t *pcap, int group, const char *fanout)
+{
+	(void)group;
+	(void)fanout;
+	/* in case the caller doesn't check for PCAP_ERROR_NOT_ACTIVATED */
+	(void)pcap_snprintf(pcap->errbuf, sizeof(pcap->errbuf),
+	    "Fanout handle hasn't been activated yet");
 	/* this means 'not initialized' */
 	return (PCAP_ERROR_NOT_ACTIVATED);
 }
@@ -406,6 +429,13 @@ static struct capture_source_type {
 #ifdef PCAP_SUPPORT_RDMASNIFF
 	{ rdmasniff_findalldevs, rdmasniff_create },
 #endif
+#ifdef PCAP_SUPPORT_PFQ
+	{ pcap_pfq_findalldevs, pcap_pfq_create },
+#endif
+#ifdef PCAP_SUPPORT_PFRING
+	{ pcap_pfring_findalldevs, pcap_pfring_create },
+#endif
+
 	{ NULL, NULL }
 };
 
@@ -1491,7 +1521,7 @@ pcap_parse_source(const char *source, char **schemep, char **userinfop,
 	}
 	memcpy(scheme, source, scheme_len);
 	scheme[scheme_len] = '\0';
-	 
+
 	/*
 	 * Treat file: specially - take everything after file:// as
 	 * the pathname.
@@ -1883,6 +1913,11 @@ pcap_create(const char *device, char *errbuf)
 	pcap_t *p;
 	char *device_str;
 
+        struct pcap_config conf;
+        const char *config = NULL;
+
+	pcap_config_default(&conf);
+
 	/*
 	 * A null device name is equivalent to the "any" device -
 	 * which might not be supported on this platform, but
@@ -1924,6 +1959,32 @@ pcap_create(const char *device, char *errbuf)
 		return (NULL);
 	}
 
+#if !defined(_WIN32) && !defined(MSDOS)
+        /*
+         * Parse the unix pcap configuration file (if necessary)
+         */
+        config = getenv("PCAP_CONFIG");
+        if (config == NULL) {
+                const char * conf[] = { "/etc/pcap.conf", "~/.pcap.conf" };
+                unsigned int i;
+                for(i = 0; i < sizeof(conf)/sizeof(conf[0]); ++i)
+                {
+                        struct stat s;
+                        if (stat(conf[i], &s) == 0) {
+                                config = conf[i];
+                                break;
+                        }
+                }
+        }
+
+        if (config != NULL) {
+                fprintf(stderr, "libpcap: parsing config file %s...\n", config);
+		if (pcap_parse_config(&conf, config, errbuf) == -1) {
+		        return NULL;
+		}
+        }
+#endif
+
 	/*
 	 * Try each of the non-local-network-interface capture
 	 * source types until we find one that works for this
@@ -1951,6 +2012,7 @@ pcap_create(const char *device, char *errbuf)
 				return (NULL);
 			}
 			p->opt.device = device_str;
+			memcpy(&p->opt.config, &conf, sizeof(conf));
 			return (p);
 		}
 	}
@@ -1967,6 +2029,7 @@ pcap_create(const char *device, char *errbuf)
 		return (NULL);
 	}
 	p->opt.device = device_str;
+	memcpy(&p->opt.config, &conf, sizeof(conf));
 	return (p);
 }
 
@@ -2018,6 +2081,7 @@ initialize_ops(pcap_t *p)
 	 * doing their own additional cleanup.
 	 */
 	p->cleanup_op = pcap_cleanup_live_common;
+        p->fanout_op = pcap_fanout_not_initialized;
 
 	/*
 	 * In most cases, the standard one-shot callback can
@@ -3705,6 +3769,12 @@ int
 pcap_inject(pcap_t *p, const void *buf, size_t size)
 {
 	return (p->inject_op(p, buf, size));
+}
+
+int
+pcap_fanout(pcap_t *p, int group, const char *fanout)
+{
+	return (p->fanout_op(p, group, fanout));
 }
 
 void

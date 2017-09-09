@@ -36,6 +36,8 @@
 
 #include <pcap/pcap.h>
 
+#include "pcap-config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,7 @@ extern "C" {
   #include <fcntl.h>
   #include <io.h>
 #endif
+
 
 #if (defined(_MSC_VER) && (_MSC_VER <= 1200)) /* we are compiling with Visual Studio 6, that doesn't support the LL suffix*/
 
@@ -120,7 +123,10 @@ struct pcap_opt {
 #ifdef _WIN32
 	int	nocapture_local;/* disable NPF loopback */
 #endif
+	struct pcap_config config;
 };
+
+
 
 typedef int	(*activate_op_t)(pcap_t *);
 typedef int	(*can_set_rfmon_op_t)(pcap_t *);
@@ -148,6 +154,7 @@ typedef int	(*live_dump_ended_op_t)(pcap_t *, int);
 typedef PAirpcapHandle	(*get_airpcap_handle_op_t)(pcap_t *);
 #endif
 typedef void	(*cleanup_op_t)(pcap_t *);
+typedef int	(*fanout_op_t)(pcap_t *, int, const char *);
 
 /*
  * We put all the stuff used in the read code path at the beginning,
@@ -208,6 +215,8 @@ struct pcap {
 	int offset;		/* offset for proper alignment */
 	int activated;		/* true if the capture is really started */
 	int oldstyle;		/* if we're opening with pcap_open_live() */
+
+	int group;		/* fanout: actual group */
 
 	struct pcap_opt opt;
 
@@ -281,6 +290,9 @@ struct pcap {
 	get_airpcap_handle_op_t get_airpcap_handle_op;
 #endif
 	cleanup_op_t cleanup_op;
+	fanout_op_t fanout_op;
+
+
 };
 
 /*

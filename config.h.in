@@ -286,6 +286,12 @@
 /* target host supports RDMA sniffing */
 #undef PCAP_SUPPORT_RDMASNIFF
 
+/* target host supports PFQ socket */
+#undef PCAP_SUPPORT_PFQ
+
+/* target host supports PF_RING socket */
+#undef PCAP_SUPPORT_PFRING
+
 /* target host supports USB sniffing */
 #undef PCAP_SUPPORT_USB
 

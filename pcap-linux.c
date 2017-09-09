@@ -1430,6 +1430,172 @@ set_poll_timeout(struct pcap_linux *handlep)
  *  be deprecated and functions be added to select that later allow
  *  modification of that values -- Torsten).
  */
+
+static inline
+int fanout_code(int strategy, int defrag, int rollover)
+{
+	if (defrag)   strategy |= PACKET_FANOUT_FLAG_DEFRAG;
+	if (rollover) strategy |= PACKET_FANOUT_FLAG_ROLLOVER;
+	return strategy;
+}
+
+static int
+pcap_parse_fanout(const char *str)
+{
+	int defrag = 0, rollover = 0;
+
+	if (!str) return -1;
+
+	/* parse options */
+
+        if (strcasestr(str, "+defrag"))
+		defrag = 1;
+        if (strcasestr(str, "+rollover"))
+		rollover = 1;
+
+	/* parse strategy */
+
+#define _(x)  x, (sizeof(x)-1)
+
+#ifdef PACKET_FANOUT_DATA
+	if (strncasecmp(str, _("data")) == 0)
+		return fanout_code(PACKET_FANOUT_DATA, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_HASH
+	if (strncasecmp(str, _("hash")) == 0)
+		return fanout_code(PACKET_FANOUT_HASH, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_LB
+	if (strncasecmp(str, _("lb")) == 0)
+		return fanout_code(PACKET_FANOUT_LB, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_CPU
+	if (strncasecmp(str, _("cpu")) == 0)
+		return fanout_code(PACKET_FANOUT_CPU, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_ROLLOVER
+	if (strncasecmp(str, _("rollover")) == 0)
+	        return fanout_code(PACKET_FANOUT_ROLLOVER, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_RND
+	if (strncasecmp(str, _("rnd")) == 0)
+	        return fanout_code(PACKET_FANOUT_RND, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_QM
+	if (strncasecmp(str, _("qm")) == 0)
+	        return fanout_code(PACKET_FANOUT_QM, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_CBPF
+	if (strncasecmp(str, _("cbpf")) == 0)
+	        return fanout_code(PACKET_FANOUT_CBPF, defrag, rollover);
+#endif
+#ifdef PACKET_FANOUT_EBPF
+	if (strncasecmp(str, _("ebpf")) == 0)
+		return fanout_code(PACKET_FANOUT_EBPF, defrag, rollover);
+#endif
+#undef _
+
+	return -1;
+}
+
+
+static int
+pcap_fanout_linux(pcap_t *handle, int group, const char *fanout)
+{
+	int fanout_code, fanout_arg;
+	int err;
+
+	fanout_code = pcap_parse_fanout(fanout);
+	if (fanout_code < 0) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "%s: unsupported fanout algorithm", fanout);
+		return PCAP_ERROR;
+	}
+
+	fanout_arg = (handle->group | (fanout_code << 16));
+
+	err = setsockopt(handle->fd, SOL_PACKET, PACKET_FANOUT,
+			 &fanout_arg, sizeof(fanout_arg));
+	if (err) {
+		pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "fanout: %s", pcap_strerror(errno));
+		return PCAP_ERROR;
+	}
+
+	return 0;
+}
+
+
+static int
+pcap_activate_fanout(pcap_t *handle, const char *device)
+{
+	struct pcap_pfq_linux *handlep = handle->priv;
+	int err;
+	char *fanout;
+
+	handle->group = pcap_group_map_get(&handle->opt.config.group_map, device);
+	if (handle->group == -1)
+		handle->group = handle->opt.config.group;
+
+        if (handle->group != -1) {
+
+                fanout = handle->opt.config.fanout[handle->group];
+                if (fanout == NULL)
+                        return 0;
+
+                fanout = pcap_string_trim(fanout);
+
+                err = pcap_fanout_linux(handle, handle->group, fanout);
+                if (err < 0)
+                        return err;
+
+                fprintf(stderr, "libpcap: fanout_group %d -> fanout '%s' enabled.\n", handle->group, fanout);
+        }
+	return 0;
+}
+
+
+int
+pcap_update_config_from_env(pcap_t *handle, struct pcap_config *conf)
+{
+	char *var, **vars;
+
+	if ((var = getenv("PCAP_GROUP")))
+		conf->group = atoi(var);
+
+	if ((var = getenv("PCAP_CAPLEN")))
+	{
+		conf->caplen = atoi(var);
+	}
+
+        if ((vars = pcap_getenv("PCAP_GROUP_")))
+	{
+		for(; *vars; vars++)
+		{
+			char *p, *dev = strdup(pcap_getenv_name(*vars + sizeof("PCAP_GROUP_")-1));
+			for(p = dev; *p != '\0'; ++p)
+				if (*p == '_')
+					*p = ':';
+			if (pcap_group_map_set(&conf->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
+				pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "libpcap: %s: group map error!\n", *vars);
+				return -1;
+			}
+
+		}
+	}
+
+	if ((var = getenv("PCAP_FANOUT")))
+	{
+	        if (conf->group == -1) {
+                        pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "libpcap: PCAP_FANOUT: default group not specified\n");
+                        return -1;
+                }
+
+		free(conf->fanout[conf->group]);
+		conf->fanout[conf->group] = strdup(var);
+	}
+
+	return 0;
+}
+
 static int
 pcap_activate_linux(pcap_t *handle)
 {
@@ -1477,6 +1643,7 @@ pcap_activate_linux(pcap_t *handle)
 	handle->cleanup_op = pcap_cleanup_linux;
 	handle->read_op = pcap_read_linux;
 	handle->stats_op = pcap_stats_linux;
+        handle->fanout_op = pcap_fanout_linux;
 
 	/*
 	 * The "any" device is a special device which causes us not
@@ -1535,6 +1702,26 @@ pcap_activate_linux(pcap_t *handle)
 		 * Success.
 		 * Try to use memory-mapped access.
 		 */
+
+		/*
+		 * parse environ variables
+		 */
+
+		if (pcap_update_config_from_env(handle, &handle->opt.config) == -1) {
+			return PCAP_ERROR;
+		}
+
+		handle->snapshot = min(handle->snapshot, handle->opt.config.caplen);
+
+		/*
+		 * setup fanout support
+		 */
+
+		if ((handle->group = pcap_activate_fanout(handle, device)) < 0) {
+			status = PCAP_ERROR;
+			goto fail;
+		}
+
 		switch (activate_mmap(handle, &status)) {
 
 		case 1:
