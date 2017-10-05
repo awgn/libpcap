@@ -1159,7 +1159,7 @@ int should_create_pfq_interface(const char *device)
 	return (!strncmp(device, "pfq:", 4)     ||
 	        getenv(pfq_dev)	                ||
 	        getenv(pfq_group_dev)           ||
-	        getenv("PFQ_DEF_GROUP")         ||
+	        getenv("PFQ_GROUP")             ||
 	        getenv("PFQ_FORCE_ALL")         ||
 	        getenv("PFQ_CONFIG"));
 }
