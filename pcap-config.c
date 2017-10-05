@@ -78,8 +78,8 @@ pcap_config_default(struct pcap_config *conf)
 	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_MAX-1] = NULL }
 	,	.caplen			= 2048
 #ifdef PCAP_SUPPORT_PFQ
-	,	.pfq_rx_slots		= 4096
-	,	.pfq_tx_slots		= 4096
+	,	.pfq_rx_slots		= 8192
+	,	.pfq_tx_slots		= 8192
 	,	.pfq_tx_sync		= 1
 	,	.pfq_tx_async		= 0
 	,	.pfq_tx_hw_queue	= {-1, -1, -1, -1}
