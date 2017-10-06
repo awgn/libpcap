@@ -256,23 +256,23 @@ pcap_conf_get_key_name(char const *key)
 	return storage;
 }
 
-static int
-pcap_conf_get_key_index(char const *key)
+static char const *
+pcap_conf_get_key_attr(char const *key)
 {
 	char * p = strchr(key, '@');
 	if (p == NULL)
-		return -1;
-	return atoi(p+1);
+		return NULL;
+	return p+1;
 }
 
 static int
-pcap_conf_parse_key(const char *key, int *group_id)
+pcap_conf_parse_key(const char *key, char const **attr)
 {
 	char const *this_key;
-        int n;
+        size_t n;
 
 	this_key = pcap_conf_get_key_name(key);
-        *group_id = pcap_conf_get_key_index(key);
+        *attr = pcap_conf_get_key_attr(key);
 
 	for(n = 0; n < pcap_conf_keys_eof ; n++)
 	{
@@ -334,8 +334,8 @@ pcap_parse_default_group(FILE *file, const char *filename)
 
 	for(n = 0; !stop && fgets(line, sizeof(line), file); free(key), free(value), n++) {
 
-		char *tkey;
-		int ktype, group_id;
+		char *tkey; const char *attr;
+		int ktype, group_id = -1;
 
                 key = value = NULL;
 
@@ -358,7 +358,10 @@ pcap_parse_default_group(FILE *file, const char *filename)
                         if (tkey[0] == '#') /* skip comments */
                                 continue;
 
-                        ktype = pcap_conf_parse_key(tkey, &group_id);
+                        ktype = pcap_conf_parse_key(tkey, &attr);
+
+                        if (attr != NULL)
+                                group_id = atoi(attr);
 
                         if (ktype == PCAP_CONF_KEY_group) {
                                 pcap_warn_if(group_id, filename, tkey);
@@ -397,8 +400,9 @@ pcap_parse_config(struct pcap_config *conf, const char *filename, char *errbuf)
 
 	for(n = 0; fgets(line, sizeof(line), file); free(key), free(value), n++) {
 
-		char *tkey;
-		int ktype, group_id, ret;
+		char *tkey; char const *attr;
+		int ktype, ret;
+                int group_id = -1;
 
                 key = value = NULL;
 
@@ -436,7 +440,10 @@ pcap_parse_config(struct pcap_config *conf, const char *filename, char *errbuf)
 			continue;
 		}
 
-		ktype = pcap_conf_parse_key(tkey, &group_id);
+		ktype = pcap_conf_parse_key(tkey, &attr);
+
+                if (attr)
+                        group_id = atoi(attr);
 
 		switch(ktype)
 		{
