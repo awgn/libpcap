@@ -1527,7 +1527,7 @@ pcap_fanout_linux(pcap_t *handle, int group, const char *fanout)
 static int
 pcap_activate_fanout(pcap_t *handle, const char *device)
 {
-	struct pcap_pfq_linux *handlep = handle->priv;
+	struct pcap_linux *handlep = handle->priv;
 	int err;
 	char *fanout;
 
