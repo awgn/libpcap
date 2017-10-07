@@ -278,6 +278,25 @@ typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
 			     const u_char *);
 
 /*
+ * Representation of an ethtool channels.
+ */
+struct pcap_channels {
+        u_int   rx_count;
+        u_int   tx_count;
+        u_int   other_count;
+        u_int   combined_count;
+};
+
+
+#define PCAP_RX_CHANNELS                1
+#define PCAP_TX_CHANNELS                2
+#define PCAP_OTHER_CHANNELS             4
+#define PCAP_COMBINED_CHANNELS          8
+
+#define PCAP_ALL_CHANNELS (PCAP_RX_CHANNELS|PCAP_TX_CHANNELS|PCAP_OTHER_CHANNELS|PCAP_COMBINED_CHANNELS)
+
+
+/*
  * Error codes for the pcap API.
  * These will all be negative, so you can check for the success or
  * failure of a call that returns these codes by checking for a
@@ -310,6 +329,9 @@ typedef void (*pcap_handler)(u_char *, const struct pcap_pkthdr *,
  * the netmask is.
  */
 #define PCAP_NETMASK_UNKNOWN	0xffffffff
+
+PCAP_API int    pcap_set_channels(pcap_t *, char const *, struct pcap_channels const *, int);
+PCAP_API int    pcap_get_channels(pcap_t *, char const *, struct pcap_channels *);
 
 PCAP_API char	*pcap_lookupdev(char *);
 PCAP_API int	pcap_lookupnet(const char *, bpf_u_int32 *, bpf_u_int32 *, char *);
