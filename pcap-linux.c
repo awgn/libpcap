@@ -1708,7 +1708,8 @@ pcap_activate_linux(pcap_t *handle)
 		 */
 
 		if (pcap_update_config_from_env(handle, &handle->opt.config) == -1) {
-			return PCAP_ERROR;
+			status = PCAP_ERROR;
+			goto fail;
 		}
 
 		handle->snapshot = min(handle->snapshot, handle->opt.config.caplen);
@@ -1757,6 +1758,7 @@ pcap_activate_linux(pcap_t *handle)
 		}
 	}
 	else if (ret == 0) {
+
 		/* Non-fatal error; try old way */
 		if ((ret = activate_old(handle)) != 1) {
 			/*
@@ -1767,6 +1769,27 @@ pcap_activate_linux(pcap_t *handle)
 			status = ret;
 			goto fail;
 		}
+
+		/*
+		 * parse environ variables
+		 */
+
+		if (pcap_update_config_from_env(handle, &handle->opt.config) == -1) {
+			status = PCAP_ERROR;
+			goto fail;
+		}
+
+		handle->snapshot = min(handle->snapshot, handle->opt.config.caplen);
+
+		/*
+		 * setup fanout support
+		 */
+
+		if ((handle->group = pcap_activate_fanout(handle, device)) < 0) {
+			status = PCAP_ERROR;
+			goto fail;
+		}
+
 	}
 
 	/*
