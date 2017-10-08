@@ -2095,7 +2095,7 @@ pcap_create(const char *device, char *errbuf)
          */
         config = getenv("PCAP_CONFIG");
         if (config == NULL) {
-                const char * conf[] = { "/etc/pcap.conf", "~/.pcap.conf" };
+                const char * conf[] = { "/etc/pcap.conf", "/root/.pcap.conf" };
                 unsigned int i;
                 for(i = 0; i < sizeof(conf)/sizeof(conf[0]); ++i)
                 {
