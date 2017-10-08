@@ -310,6 +310,7 @@ pcap_set_channels(pcap_t *p, char const *dev, struct pcap_channels const *ch, in
 #ifdef __linux__
         struct ethtool_channels echannels;
         struct ifreq ifr;
+        int doset = 0;
 	int err;
 
         /* get current channels first */
@@ -328,27 +329,38 @@ pcap_set_channels(pcap_t *p, char const *dev, struct pcap_channels const *ch, in
 			return (PCAP_ERROR);
         }
 
-        /* update the values to set*/
+        /* update the values */
 
-        if (ch_mask & PCAP_RX_CHANNELS)
+        if ((ch_mask & PCAP_RX_CHANNELS) && (echannels.rx_count != ch->rx_count)) {
+                doset = 1;
                 echannels.rx_count = ch->rx_count;
-        if (ch_mask & PCAP_TX_CHANNELS)
+        }
+        if ((ch_mask & PCAP_TX_CHANNELS) && (echannels.tx_count != ch->tx_count)) {
+                doset = 1;
                 echannels.tx_count = ch->tx_count;
-        if (ch_mask & PCAP_OTHER_CHANNELS)
+        }
+        if ((ch_mask & PCAP_OTHER_CHANNELS) && (echannels.other_count != ch->other_count)) {
+                doset = 1;
                 echannels.other_count = ch->other_count;
-        if (ch_mask & PCAP_COMBINED_CHANNELS)
+        }
+        if ((ch_mask & PCAP_COMBINED_CHANNELS) && (echannels.combined_count != ch->combined_count)) {
+                doset = 1;
                 echannels.combined_count = ch->combined_count;
+        }
 
-        /* set the actual channels configuration */
+        /* if changes, set the actual channels configuration */
 
-	echannels.cmd = ETHTOOL_SCHANNELS;
-        ifr.ifr_data = (caddr_t)&echannels;
+        if (doset)
+        {
+                echannels.cmd = ETHTOOL_SCHANNELS;
+                ifr.ifr_data = (caddr_t)&echannels;
 
-	err = ioctl(p->fd, SIOCETHTOOL, &ifr);
-        if (err < 0) {
-                (void)pcap_snprintf(p->errbuf, sizeof(p->errbuf),
-			    "pcap_set_channels: %s", pcap_strerror(errno));
-			return (PCAP_ERROR);
+                err = ioctl(p->fd, SIOCETHTOOL, &ifr);
+                if (err < 0) {
+                        (void)pcap_snprintf(p->errbuf, sizeof(p->errbuf),
+                                    "pcap_set_channels: %s", pcap_strerror(errno));
+                                return (PCAP_ERROR);
+                }
         }
 
         return (1);
