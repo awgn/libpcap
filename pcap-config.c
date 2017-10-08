@@ -74,8 +74,8 @@ pcap_config_default(struct pcap_config *conf)
 	*conf = (struct pcap_config)
 	{
 		.group		        = -1
-	,	.group_map		= {{[0 ... PCAP_FANOUT_GROUP_MAX-1] = {NULL, -1}}, 0 }
-	,	.fanout			= { [0 ... PCAP_FANOUT_GROUP_MAX-1] = NULL }
+	,	.group_map		= {{[0 ... PCAP_DEVMAP_MAX_ENTRY-1] = {NULL, -1}}, 0 }
+	,	.fanout			= { [0 ... PCAP_DEVMAP_MAX_ENTRY-1] = NULL }
 	,	.caplen			= 2048
 #ifdef PCAP_SUPPORT_PFQ
 	,	.pfq_rx_slots		= 8192
@@ -84,7 +84,7 @@ pcap_config_default(struct pcap_config *conf)
 	,	.pfq_tx_async		= 0
 	,	.pfq_tx_hw_queue	= {-1, -1, -1, -1}
 	,	.pfq_tx_idx_thread	= { Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD, Q_NO_KTHREAD }
-	,	.pfq_vlan		= {[0 ... PCAP_FANOUT_GROUP_MAX-1] = NULL }
+	,	.pfq_vlan		= {[0 ... PCAP_DEVMAP_MAX_ENTRY-1] = NULL }
 #endif
 	};
 }
@@ -92,16 +92,16 @@ pcap_config_default(struct pcap_config *conf)
 
 
 void
-pcap_group_map_dump(struct pcap_group_map const *map)
+pcap_dev_map_dump(struct pcap_dev_map const *map)
 {
 	int n = 0;
 	for(; n < map->size; n++)
-		fprintf(stderr, "libpcap: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].group);
+		fprintf(stderr, "libpcap: config group for dev '%s' = %d\n", map->entry[n].dev, map->entry[n].value);
 }
 
 
 void
-pcap_group_map_free(struct pcap_group_map *map)
+pcap_dev_map_free(struct pcap_dev_map *map)
 {
 	int n = 0;
 	for(; n < map->size; n++)
@@ -110,7 +110,7 @@ pcap_group_map_free(struct pcap_group_map *map)
 
 
 int
-pcap_group_map_set(struct pcap_group_map *map, const char *dev, int group)
+pcap_dev_map_set(struct pcap_dev_map *map, const char *dev, int value)
 {
 	int n = 0;
 	for(; n < map->size; n++) {
@@ -118,12 +118,12 @@ pcap_group_map_set(struct pcap_group_map *map, const char *dev, int group)
 			break;
 	}
 
-	if (n == PCAP_FANOUT_GROUP_MAX)
+	if (n == PCAP_DEVMAP_MAX_ENTRY)
 		return -1;
 
 	free(map->entry[n].dev);
 	map->entry[n].dev = strdup(dev);
-	map->entry[n].group = group;
+	map->entry[n].value = value;
 
 	if (n == map->size)
 		map->size++;
@@ -133,12 +133,12 @@ pcap_group_map_set(struct pcap_group_map *map, const char *dev, int group)
 
 
 int
-pcap_group_map_get(struct pcap_group_map const *map, const char *dev)
+pcap_dev_map_get(struct pcap_dev_map const *map, const char *dev)
 {
 	int n = 0;
 	for(; n < map->size; n++) {
 		if (strcmp(map->entry[n].dev, dev) == 0)
-			return map->entry[n].group;
+			return map->entry[n].value;
 	}
 	return -1;
 }
@@ -148,7 +148,7 @@ static void
 pcap_warn_if(int group_id, const char *filename, const char *key)
 {
 	if (group_id != -1)
-		fprintf(stderr, "libpcap:%s: key %s: group ignored!\n", filename, key);
+		fprintf(stderr, "libpcap:%s: key %s: value ignored!\n", filename, key);
 }
 
 
@@ -276,7 +276,8 @@ pcap_conf_parse_key(const char *key, char const **attr)
 
 	for(n = 0; n < pcap_conf_keys_eof ; n++)
 	{
-		if (strcasecmp(pcap_conf_keys[n].value, this_key) == 0)
+		if ((pcap_conf_keys[n].value != NULL)
+		    && strcasecmp(pcap_conf_keys[n].value, this_key) == 0)
 			return n;
 	}
 	return -1;
@@ -433,7 +434,7 @@ pcap_parse_config(struct pcap_config *conf, const char *filename, char *errbuf)
 		if (strncasecmp(tkey, "group_", 6) == 0)
 		{
 			char *dev = strdup(pcap_getenv_name(tkey + sizeof("group_")-1));
-			if (pcap_group_map_set(&conf->group_map, dev, atoi(value)) < 0) {
+			if (pcap_dev_map_set(&conf->group_map, dev, atoi(value)) < 0) {
 				fprintf(stderr, "libpcap:%s: '%s': group map error!\n", filename, tkey);
 				ret = -1; goto done;
 			}

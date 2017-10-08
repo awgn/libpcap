@@ -561,7 +561,7 @@ pfq_activate_socket_for_device(pcap_t *handle, const char *device)
 	struct pcap_pfq_linux *handlep = handle->priv;
 	int group;
 
-	group = pcap_group_map_get(&handle->opt.config.group_map, handlep->device);
+	group = pcap_dev_map_get(&handle->opt.config.group_map, handlep->device);
 	if (group == -1)
 		group = handle->opt.config.group;
 
@@ -681,7 +681,7 @@ pfq_activate_linux(pcap_t *handle)
 		handle->opt.config.pfq_tx_sync);
 
 
-	pcap_group_map_dump(&handle->opt.config.group_map);
+	pcap_dev_map_dump(&handle->opt.config.group_map);
 
 	fprintf(stderr, "[PFQ] config group default %d\n", handle->opt.config.group);
 

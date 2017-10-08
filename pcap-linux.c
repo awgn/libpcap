@@ -1531,7 +1531,7 @@ pcap_activate_fanout(pcap_t *handle, const char *device)
 	int err;
 	char *fanout;
 
-	handle->group = pcap_group_map_get(&handle->opt.config.group_map, device);
+	handle->group = pcap_dev_map_get(&handle->opt.config.group_map, device);
 	if (handle->group == -1)
 		handle->group = handle->opt.config.group;
 
@@ -1574,7 +1574,7 @@ pcap_update_config_from_env(pcap_t *handle, struct pcap_config *conf)
 			for(p = dev; *p != '\0'; ++p)
 				if (*p == '_')
 					*p = ':';
-			if (pcap_group_map_set(&conf->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
+			if (pcap_dev_map_set(&conf->group_map, dev, atoi(pcap_getenv_value(*vars))) < 0) {
 				pcap_snprintf(handle->errbuf, PCAP_ERRBUF_SIZE, "libpcap: %s: group map error!\n", *vars);
 				return -1;
 			}

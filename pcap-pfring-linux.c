@@ -521,7 +521,7 @@ pfring_activate_linux(pcap_t *handle)
 		return PCAP_ERROR;
 	}
 
-	handle->group = pcap_group_map_get(&handle->opt.config.group_map, device);
+	handle->group = pcap_dev_map_get(&handle->opt.config.group_map, device);
 	if (handle->group == -1)
 		handle->group = handle->opt.config.group;
 
