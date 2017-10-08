@@ -45,16 +45,19 @@
 #define PCAP_CONF_KEY_group		0
 #define PCAP_CONF_KEY_fanout		1
 #define PCAP_CONF_KEY_caplen		2
+#define PCAP_CONF_KEY_rx_channels       3
+#define PCAP_CONF_KEY_tx_channels       4
+#define PCAP_CONF_KEY_combined_channels 5
+#define PCAP_CONF_KEY_other_channels    6
 
-#ifdef PCAP_SUPPORT_PFQ
-/* specific PFQ keys */
+#ifdef PCAP_SUPPORT_PFQ /* specific PFQ keys */
 
-#define PCAP_CONF_KEY_pfq_rx_slots	3
-#define PCAP_CONF_KEY_pfq_tx_slots	4
-#define PCAP_CONF_KEY_pfq_tx_sync	5
-#define PCAP_CONF_KEY_pfq_tx_hw_queue	6
-#define PCAP_CONF_KEY_pfq_tx_idx_thread	7
-#define PCAP_CONF_KEY_pfq_vlan		8
+#define PCAP_CONF_KEY_pfq_rx_slots	10
+#define PCAP_CONF_KEY_pfq_tx_slots	11
+#define PCAP_CONF_KEY_pfq_tx_sync	12
+#define PCAP_CONF_KEY_pfq_tx_hw_queue	13
+#define PCAP_CONF_KEY_pfq_tx_idx_thread	14
+#define PCAP_CONF_KEY_pfq_vlan		15
 #endif
 
 #define PCAP_DEVMAP_MAX_ENTRY		64
@@ -86,9 +89,12 @@ struct pcap_config
 	char   * fanout[PCAP_DEVMAP_MAX_ENTRY];
 	int      caplen;
 
+	struct   pcap_dev_map rx_channels;
+	struct   pcap_dev_map tx_channels;
+	struct   pcap_dev_map combined_channels;
+	struct   pcap_dev_map other_channels;
+
 #ifdef PCAP_SUPPORT_PFQ
-
-
 	int pfq_rx_slots;
 	int pfq_tx_slots;
 

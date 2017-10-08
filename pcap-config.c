@@ -55,6 +55,10 @@ struct pcap_conf_key pcap_conf_keys[] =
         PCAP_CONF_KEY(group)
 ,	PCAP_CONF_KEY(fanout)
 ,	PCAP_CONF_KEY(caplen)
+,	PCAP_CONF_KEY(rx_channels)
+,	PCAP_CONF_KEY(tx_channels)
+,	PCAP_CONF_KEY(combined_channels)
+,	PCAP_CONF_KEY(other_channels)
 #ifdef PCAP_SUPPORT_PFQ
 ,	PCAP_CONF_KEY(pfq_rx_slots)
 ,	PCAP_CONF_KEY(pfq_tx_slots)
@@ -77,6 +81,10 @@ pcap_config_default(struct pcap_config *conf)
 	,	.group_map		= {{[0 ... PCAP_DEVMAP_MAX_ENTRY-1] = {NULL, -1}}, 0 }
 	,	.fanout			= { [0 ... PCAP_DEVMAP_MAX_ENTRY-1] = NULL }
 	,	.caplen			= 2048
+        ,       .rx_channels            = {}
+        ,       .tx_channels            = {}
+        ,       .combined_channels      = {}
+        ,       .other_channels         = {}
 #ifdef PCAP_SUPPORT_PFQ
 	,	.pfq_rx_slots		= 8192
 	,	.pfq_tx_slots		= 8192
@@ -473,6 +481,54 @@ pcap_parse_config(struct pcap_config *conf, const char *filename, char *errbuf)
 				pcap_warn_if(group_id, filename, tkey);
 				conf->caplen = atoi(value);
 			} break;
+
+			case PCAP_CONF_KEY_rx_channels: {
+			        if (!attr) {
+                                        fprintf(stderr, "libpcap:%s: '%s': device missing!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+                                if (pcap_dev_map_set(&conf->rx_channels, attr, atoi(value)) < 0) {
+                                        fprintf(stderr, "libpcap:%s: '%s': dev map error!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+			} break;
+
+			case PCAP_CONF_KEY_tx_channels: {
+ 			        if (!attr) {
+                                        fprintf(stderr, "libpcap:%s: '%s': device missing!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+                                if (pcap_dev_map_set(&conf->tx_channels, attr, atoi(value)) < 0) {
+                                        fprintf(stderr, "libpcap:%s: '%s': dev map error!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+
+			} break;
+
+			case PCAP_CONF_KEY_combined_channels: {
+ 			        if (!attr) {
+                                        fprintf(stderr, "libpcap:%s: '%s': device missing!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+                                if (pcap_dev_map_set(&conf->combined_channels, attr, atoi(value)) < 0) {
+                                        fprintf(stderr, "libpcap:%s: '%s': dev map error!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+
+			} break;
+
+			case PCAP_CONF_KEY_other_channels: {
+ 			        if (!attr) {
+                                        fprintf(stderr, "libpcap:%s: '%s': device missing!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+                                if (pcap_dev_map_set(&conf->other_channels, attr, atoi(value)) < 0) {
+                                        fprintf(stderr, "libpcap:%s: '%s': dev map error!\n", filename, tkey);
+                                        ret = -1; goto done;
+                                }
+
+			} break;
+
 #ifdef PCAP_SUPPORT_PFQ
 			case PCAP_CONF_KEY_pfq_rx_slots: {
 				pcap_warn_if(group_id, filename, tkey);
