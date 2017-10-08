@@ -330,8 +330,8 @@ struct pcap_channels {
  */
 #define PCAP_NETMASK_UNKNOWN	0xffffffff
 
-PCAP_API int    pcap_set_channels(pcap_t *, char const *, struct pcap_channels const *, int);
-PCAP_API int    pcap_get_channels(pcap_t *, char const *, struct pcap_channels *);
+PCAP_API int    pcap_set_channels(char const *, struct pcap_channels const *, int, char *);
+PCAP_API int    pcap_get_channels(char const *, struct pcap_channels *, char *);
 
 PCAP_API char	*pcap_lookupdev(char *);
 PCAP_API int	pcap_lookupnet(const char *, bpf_u_int32 *, bpf_u_int32 *, char *);

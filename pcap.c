@@ -268,12 +268,18 @@ pcap_cant_set_rfmon(pcap_t *p _U_)
  */
 
 PCAP_API int
-pcap_get_channels(pcap_t *p, char const *dev, struct pcap_channels *ch)
+pcap_get_channels(char const *dev, struct pcap_channels *ch, char *ebuf)
 {
 #ifdef __linux__
         struct ethtool_channels echannels;
         struct ifreq ifr;
 	int err;
+	int fd;
+
+        fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd == -1) {
+                return (PCAP_ERROR);
+        }
 
         memset(&ifr, 0, sizeof(ifr));
         strncpy(ifr.ifr_name, dev, sizeof(ifr.ifr_name));
@@ -282,9 +288,10 @@ pcap_get_channels(pcap_t *p, char const *dev, struct pcap_channels *ch)
 	echannels.cmd = ETHTOOL_GCHANNELS;
         ifr.ifr_data = (caddr_t)&echannels;
 
-	err = ioctl(p->fd, SIOCETHTOOL, &ifr);
+	err = ioctl(fd, SIOCETHTOOL, &ifr);
         if (err < 0) {
-                (void)pcap_snprintf(p->errbuf, sizeof(p->errbuf),
+                close(fd);
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
 			    "pcap_get_channels: %s", pcap_strerror(errno));
 			return (PCAP_ERROR);
         }
@@ -294,6 +301,7 @@ pcap_get_channels(pcap_t *p, char const *dev, struct pcap_channels *ch)
         ch->other_count = echannels.other_count;
         ch->combined_count = echannels.combined_count;
 
+        close(fd);
         return (1);
 #else
 	return (0);
@@ -305,13 +313,18 @@ pcap_get_channels(pcap_t *p, char const *dev, struct pcap_channels *ch)
  */
 
 PCAP_API int
-pcap_set_channels(pcap_t *p, char const *dev, struct pcap_channels const *ch, int ch_mask)
+pcap_set_channels(char const *dev, struct pcap_channels const *ch, int ch_mask, char *ebuf)
 {
 #ifdef __linux__
         struct ethtool_channels echannels;
         struct ifreq ifr;
         int doset = 0;
-	int err;
+	int fd, err;
+
+        fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (fd == -1) {
+                return (PCAP_ERROR);
+        }
 
         /* get current channels first */
 
@@ -322,9 +335,10 @@ pcap_set_channels(pcap_t *p, char const *dev, struct pcap_channels const *ch, in
 	echannels.cmd = ETHTOOL_GCHANNELS;
         ifr.ifr_data = (caddr_t)&echannels;
 
-	err = ioctl(p->fd, SIOCETHTOOL, &ifr);
+	err = ioctl(fd, SIOCETHTOOL, &ifr);
         if (err < 0) {
-                (void)pcap_snprintf(p->errbuf, sizeof(p->errbuf),
+                close(fd);
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
 			    "pcap_get_channels: %s", pcap_strerror(errno));
 			return (PCAP_ERROR);
         }
@@ -355,14 +369,16 @@ pcap_set_channels(pcap_t *p, char const *dev, struct pcap_channels const *ch, in
                 echannels.cmd = ETHTOOL_SCHANNELS;
                 ifr.ifr_data = (caddr_t)&echannels;
 
-                err = ioctl(p->fd, SIOCETHTOOL, &ifr);
+                err = ioctl(fd, SIOCETHTOOL, &ifr);
                 if (err < 0) {
-                        (void)pcap_snprintf(p->errbuf, sizeof(p->errbuf),
+                        close(fd);
+                        (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
                                     "pcap_set_channels: %s", pcap_strerror(errno));
                                 return (PCAP_ERROR);
                 }
         }
 
+        close(fd);
         return (1);
 #else
 	return (0);
