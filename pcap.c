@@ -2035,6 +2035,72 @@ pcap_parsesrcstr(const char *source, int *type, char *host, char *port,
 }
 #endif
 
+
+#ifdef __linux__
+static int
+pcap_set_channels_linux(struct pcap_config *conf, char *errbuf)
+{
+        /*
+         * set channels from configuration file...
+         */
+
+        if (conf->rx_channels.size) {
+                struct pcap_dev_map *map = &conf->rx_channels;
+                int n = 0;
+                for(; n < map->size; n++) {
+		        fprintf(stderr, "libpcap: setting Rx channels to %d on dev %s...\n"
+		                , map->entry[n].value
+		                , map->entry[n].dev);
+                        struct pcap_channels ch = {.rx_count = (u_int)map->entry[n].value };
+                        if (pcap_set_channels(map->entry[n].dev, &ch, PCAP_RX_CHANNELS, errbuf) != 1) {
+                                return (PCAP_ERROR);
+                        }
+                }
+        }
+        if (conf->tx_channels.size) {
+                struct pcap_dev_map *map = &conf->tx_channels;
+                int n = 0;
+                for(; n < map->size; n++) {
+		        fprintf(stderr, "libpcap: setting Tx channels to %d on dev %s...\n"
+		                , map->entry[n].value
+		                , map->entry[n].dev);
+                        struct pcap_channels ch = {.tx_count = (u_int)map->entry[n].value };
+                        if (pcap_set_channels(map->entry[n].dev, &ch, PCAP_TX_CHANNELS, errbuf) != 1) {
+                                return (PCAP_ERROR);
+                        }
+                }
+        }
+        if (conf->combined_channels.size) {
+                struct pcap_dev_map *map = &conf->combined_channels;
+                int n = 0;
+                for(; n < map->size; n++) {
+		        fprintf(stderr, "libpcap: setting Combined channels to %d on dev %s...\n"
+		                , map->entry[n].value
+		                , map->entry[n].dev);
+                        struct pcap_channels ch = {.combined_count = (u_int)map->entry[n].value };
+                        if (pcap_set_channels(map->entry[n].dev, &ch, PCAP_COMBINED_CHANNELS, errbuf) != 1) {
+                                return (PCAP_ERROR);
+                        }
+                }
+        }
+        if (conf->other_channels.size) {
+                struct pcap_dev_map *map = &conf->other_channels;
+                int n = 0;
+                for(; n < map->size; n++) {
+		        fprintf(stderr, "libpcap: setting Other channels to %d on dev %s...\n"
+		                , map->entry[n].value
+		                , map->entry[n].dev);
+                        struct pcap_channels ch = {.other_count = (u_int)map->entry[n].value };
+                        if (pcap_set_channels(map->entry[n].dev, &ch, PCAP_OTHER_CHANNELS, errbuf) != 1) {
+                                return (PCAP_ERROR);
+                        }
+                }
+        }
+
+        return (0);
+}
+#endif
+
 pcap_t *
 pcap_create(const char *device, char *errbuf)
 {
@@ -2113,6 +2179,15 @@ pcap_create(const char *device, char *errbuf)
 		        return NULL;
 		}
         }
+
+#ifdef __linux__
+        if (pcap_set_channels_linux(&conf, errbuf) < 0) {
+		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
+		    "set_channels: %s", pcap_strerror(errno));
+		return (NULL);
+        }
+#endif
+
 #endif
 
 	/*
