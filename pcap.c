@@ -323,6 +323,8 @@ pcap_set_channels(char const *dev, struct pcap_channels const *ch, int ch_mask, 
 
         fd = socket(AF_INET, SOCK_DGRAM, 0);
         if (fd == -1) {
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			    "pcap_get_channels: %s", pcap_strerror(errno));
                 return (PCAP_ERROR);
         }
 
