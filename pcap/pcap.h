@@ -87,6 +87,7 @@
 #endif
 
 #include <stdio.h>
+#include <sched.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -290,8 +291,8 @@ struct pcap_channels {
 
 #define PCAP_RX_CHANNELS                1
 #define PCAP_TX_CHANNELS                2
-#define PCAP_OTHER_CHANNELS             4
-#define PCAP_COMBINED_CHANNELS          8
+#define PCAP_COMBINED_CHANNELS          4
+#define PCAP_OTHER_CHANNELS             8
 
 #define PCAP_ALL_CHANNELS (PCAP_RX_CHANNELS|PCAP_TX_CHANNELS|PCAP_OTHER_CHANNELS|PCAP_COMBINED_CHANNELS)
 
@@ -332,6 +333,13 @@ struct pcap_channels {
 
 PCAP_API int    pcap_set_channels(char const *, struct pcap_channels const *, int, char *);
 PCAP_API int    pcap_get_channels(char const *, struct pcap_channels *, char *);
+
+PCAP_API int    pcap_irq_lookup(const char *dev, int channel, int mode, char *);
+PCAP_API int	pcap_irq_setaffinity(unsigned int irq, cpu_set_t const *mask, char *ebuf);
+PCAP_API int	pcap_irq_getaffinity(unsigned int irq, cpu_set_t *mask, char *ebuf);
+
+PCAP_API int	pcap_channel_setaffinity(char const *dev, int channel, int mode, const cpu_set_t *mask, char *ebuf);
+PCAP_API int	pcap_channel_getaffinity(char const *dev, int channel, int mode, cpu_set_t *mask, char *ebuf);
 
 PCAP_API char	*pcap_lookupdev(char *);
 PCAP_API int	pcap_lookupnet(const char *, bpf_u_int32 *, bpf_u_int32 *, char *);

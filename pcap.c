@@ -35,6 +35,11 @@
 #include <config.h>
 #endif
 
+#ifdef __linux__
+#define _GNU_SOURCE
+#include <sched.h>
+#endif
+
 #include <pcap-types.h>
 #ifndef _WIN32
 #include <sys/param.h>
@@ -58,6 +63,7 @@ struct rtentry;		/* declarations in <net/if.h> */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #if !defined(_MSC_VER) && !defined(__BORLANDC__) && !defined(__MINGW32__)
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -387,6 +393,240 @@ pcap_set_channels(char const *dev, struct pcap_channels const *ch, int ch_mask, 
 #endif
 }
 
+
+PCAP_API int
+pcap_get_processor_number(void)
+{
+#ifdef __linux__
+        static __thread int n;
+        if (!n) {
+		FILE * f;
+		char * line = NULL;
+		size_t len = 0;
+
+		f = fopen("/proc/cpuinfo", "r");
+   		if (f == NULL) {
+			return (PCAP_ERROR);
+		}
+
+		while (getline(&line, &len, f) != -1) {
+		        if (strstr(line, "processor") == line)
+		                n++;
+    		}
+
+	    	fclose(f);
+	    	if (line)
+			free(line);
+        }
+
+        return n;
+#else
+	return (0);
+#endif
+}
+
+
+PCAP_API int
+pcap_irq_lookup(const char *dev, int channel, int mode, char *ebuf)
+{
+#ifdef __linux__
+        FILE * f;
+        char * line = NULL;
+        size_t len = 0;
+        int ret = PCAP_ERROR;
+
+        f = fopen("/proc/interrupts", "r");
+        if (f == NULL) {
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			"pcap_irq_lookup: %s", pcap_strerror(errno));
+                return (PCAP_ERROR);
+        }
+
+        while (getline(&line, &len, f) != -1) {
+
+                char *last = NULL, *token = NULL;
+                int init = 0, sofar = 0, irq;
+
+                if (sscanf(line, "%d:",&irq) != 1)
+                        continue;
+
+                do {
+                        free(last);
+                        last = token;
+                        init += sofar;
+                }
+                while (sscanf(line + init, "%ms%n", &token, &sofar) == 1);
+
+		if (strstr(last, dev) == last) {
+
+			int rx = 0, tx = 0, ch = 0;
+			char * rest = strchr(last, '-');
+			if (rest) {
+				rx = strcasestr(rest+1, "rx") != NULL;
+				tx = strcasestr(rest+1, "tx") != NULL;
+			}
+
+			if (sscanf(last, "%*[^-]-%*[^-]-%d", &ch) != 1)
+				sscanf(last, "%*[^-]-%d", &ch);
+
+			if (ch == channel) {
+				if ( (mode == PCAP_RX_CHANNELS && rx && !tx) ||
+				     (mode == PCAP_TX_CHANNELS && !rx && tx) ||
+				     (mode == PCAP_COMBINED_CHANNELS && rx && tx) ||
+				     (mode == PCAP_OTHER_CHANNELS && !rx && !tx)) {
+					free(last);
+					ret = irq;
+					break;
+				}
+			}
+		}
+
+                free(last);
+        }
+
+        fclose(f);
+        if (line)
+                free(line);
+
+        return ret;
+#else
+	return (0);
+#endif
+}
+
+
+
+static char *
+pcap_irq_mask(cpu_set_t const *set)
+{
+#ifdef __linux__
+	static __thread char buf[ CPU_SETSIZE/4  + CPU_SETSIZE/32 ];  /* /4 -> hex chars -> /32 -> comma sep */
+        int chr = 0, mask = 0, notnull = 0, first = 1, n;
+
+	for(n = CPU_SETSIZE-1; n >= 0; n--)
+	{
+		if (CPU_ISSET(n, set)) {
+			mask |= 1 << (n % 32);
+			notnull = 1;
+		}
+
+		if (notnull && (n % 32) == 0) {
+			chr += sprintf(buf + chr, first ? "%.8x" : ",%.8x", mask);
+			first = 0;
+			mask = 0;
+		}
+	}
+	return buf;
+#else
+	return NULL;
+#endif
+}
+
+
+PCAP_API int
+pcap_irq_setaffinity(unsigned int irq, cpu_set_t const *mask, char *ebuf)
+{
+#ifdef __linux__
+        char smp_affinity[64], *strmask;
+        FILE *f;
+
+        sprintf(smp_affinity, "/proc/irq/%d/smp_affinity", irq);
+        f = fopen(smp_affinity, "w");
+        if (!f) {
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			"pcap_irq_setaffinity: %s", pcap_strerror(errno));
+                return (PCAP_ERROR);
+        }
+
+	strmask = pcap_irq_mask(mask);
+
+	if(fwrite(strmask, strlen(strmask), 1, f) != 1) {
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			"pcap_irq_setaffinity: %s", pcap_strerror(errno));
+		fclose(f);
+		return (PCAP_ERROR);
+	}
+
+        fclose(f);
+        return (1);
+#else
+	return (0);
+#endif
+}
+
+
+PCAP_API int
+pcap_irq_getaffinity(unsigned int irq, cpu_set_t *mask, char *ebuf)
+{
+#ifdef __linux__
+        char smp_affinity[64];
+	int hex, masks[CPU_SETSIZE/32];
+        FILE *f;
+	int first = 1, ret = 0, n, i = 0;
+
+	CPU_ZERO(mask);
+
+        sprintf(smp_affinity, "/proc/irq/%d/smp_affinity", irq);
+        f = fopen(smp_affinity, "r");
+        if (!f) {
+                (void)pcap_snprintf(ebuf, PCAP_ERRBUF_SIZE,
+			"pcap_irq_getaffinity: %s", pcap_strerror(errno));
+                return (PCAP_ERROR);
+        }
+
+	while (fscanf(f, first ? "%x" : ",%x", &hex) == 1)
+	{
+		masks[i++] = hex;
+		first = 0;
+	}
+
+	int block = 0;
+	for(n = i-1; n >= 0; block++, n--)
+	{
+		int x;
+		for(x = 0; x < 32; x++)
+		{
+			if (masks[n] & (1<<x))
+				CPU_SET(block * 32 + x,  mask);
+		}
+	}
+
+        fclose(f);
+	return (1);
+#else
+	return (0);
+#endif
+}
+
+
+PCAP_API int
+pcap_channel_setaffinity(char const *dev, int channel, int mode, const cpu_set_t *mask, char *ebuf)
+{
+#ifdef __linux__
+	int irq = pcap_irq_lookup(dev, channel, mode, ebuf);
+	if (irq < 0)
+		return irq;
+
+	return pcap_irq_setaffinity(irq, mask, ebuf);
+#else
+	return (0);
+#endif
+}
+
+
+PCAP_API int
+pcap_channel_getaffinity(char const *dev, int channel, int mode, cpu_set_t *mask, char *ebuf)
+{
+#ifdef __linux__
+	int irq = pcap_irq_lookup(dev, channel, mode, ebuf);
+	if (irq < 0)
+		return irq;
+
+	return pcap_irq_getaffinity(irq, mask, ebuf);
+#else
+	return (0);
+#endif
+}
 
 
 /*
