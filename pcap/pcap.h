@@ -87,7 +87,10 @@
 #endif
 
 #include <stdio.h>
+#ifdef __linux__
+#define _GNU_SOURCE
 #include <sched.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
