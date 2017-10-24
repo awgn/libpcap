@@ -457,7 +457,7 @@ pcap_irq_lookup(const char *dev, int channel, int mode, char *ebuf)
                 }
                 while (sscanf(line + init, "%ms%n", &token, &sofar) == 1);
 
-		if (strstr(last, dev) == last) {
+		if (strstr(last, dev)) {
 
 			int rx = 0, tx = 0, ch = 0;
 			char * rest = strchr(last, '-');
@@ -466,8 +466,9 @@ pcap_irq_lookup(const char *dev, int channel, int mode, char *ebuf)
 				tx = strcasestr(rest+1, "tx") != NULL;
 			}
 
+			if (sscanf(last, "%*[^-]-%*[^-]-%*[^-]-%d", &ch) != 1)
 			if (sscanf(last, "%*[^-]-%*[^-]-%d", &ch) != 1)
-				sscanf(last, "%*[^-]-%d", &ch);
+			    sscanf(last, "%*[^-]-%d", &ch);
 
 			if (ch == channel) {
 				if ( (mode == PCAP_RX_CHANNELS && rx && !tx) ||
